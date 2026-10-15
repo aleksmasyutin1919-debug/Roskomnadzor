@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Роскомнадзор ( РКН ) Simulator: by ADM00103</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --panel-color: #16213e;
+            --accent-color: #e94560;
+            --text-color: #ffffff;
+            --success-color: #4caf50;
+            --warning-color: #ff9800;
+            --danger-color: #f44336;
+            --item-width: 120px;
+            --item-height: 120px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 1.4rem;
+            color: #a0a0a0;
+        }
+
+        /* Контейнер рулетки */
+        .roulette-wrapper {
+            position: relative;
+            width: 90%;
+            max-width: 800px;
+            height: 160px;
+            background-color: #0f1526;
+            border: 4px solid var(--panel-color);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        /* Центральная линия (указатель) */
+        .pointer-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 4px;
+            background-color: var(--accent-color);
+            transform: translateX(-50%);
+            z-index: 10;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+        
+        .pointer-triangle {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 20px solid var(--accent-color);
+            z-index: 11;
+        }
+
+        .pointer-triangle.bottom {
+            top: auto;
+            bottom: 0;
+            transform: translateX(-50%) rotate(180deg);
+        }
+
+        /* Лента с элементами */
+        .roulette-track {
+            display: flex;
+            height: 100%;
+            align-items: center;
+            position: absolute;
+            left: 0;
+            will-change: transform;
+            /* Начальное смещение, чтобы первый элемент был не сразу у края */
+            transform: translateX(0px); 
+        }
+
+        .service-item {
+            width: var(--item-width);
+            height: var(--item-height);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            background: linear-gradient(145deg, #1e2a4a, #16213e);
+            transition: opacity 0.3s;
+        }
+
+        .service-icon {
+            font-size: 3rem;
+            margin-bottom: 5px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+
+        .service-name {
+            font-size: 0.8rem;
+            text-align: center;
+            font-weight: bold;
+            color: #ccc;
+            padding: 0 5px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 800px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: white;
+            text-transform: uppercase;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-spin { background-color: var(--accent-color); flex-basis: 100%; max-width: 300px; }
+        .btn-limit { background-color: var(--warning-color); color: #333; }
+        .btn-slow { background-color: #3498db; }
+        .btn-ban { background-color: var(--danger-color); }
+
+        .result-display {
+            margin-top: 15px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            min-height: 1.6em;
+            text-align: center;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal {
+            background: var(--panel-color);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            border: 2px solid var(--accent-color);
+            box-shadow: 0 0 40px rgba(233, 69, 96, 0.4);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal h2 {
+            margin-top: 0;
+            font-size: 2rem;
+            text-transform: uppercase;
+        }
+
+        .modal p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin: 20px 0;
+            color: #ddd;
+        }
+
+        .salary-box {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #333;
+        }
+
+        .salary-highlight {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--success-color);
+            display: block;
+            margin-top: 5px;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
+        }
+
+        .close-btn {
+            background-color: #555;
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .close-btn:hover {
+            background-color: #666;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Система Мониторинга Доступности v2.0</h1>
+
+    <div class="roulette-wrapper">
+        <div class="pointer-triangle"></div>
+        <div class="pointer-line"></div>
+        <div class="pointer-triangle bottom"></div>
+        
+        <div class="roulette-track" id="track">
+            <!-- Элементы будут добавлены через JS -->
+        </div>
+    </div>
+
+    <div class="result-display" id="currentService">Нажмите "Запустить мониторинг"</div>
+
+    <div class="controls">
+        <button class="btn-spin" id="spinBtn" onclick="spinWheel()">🚀 Запустить мониторинг</button>
+        <button class="btn-limit" id="limitBtn" onclick="applyAction('limit')" disabled>⚠️ Ограничить</button>
+        <button class="btn-slow" id="slowBtn" onclick="applyAction('slow')" disabled>🐢 Замедлить</button>
+        <button class="btn-ban" id="banBtn" onclick="applyAction('ban')" disabled>🚫 Забанить</button>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h2 id="modalTitle">Статус изменен</h2>
+            <p id="modalMessage">Сообщение</p>
+            
+            <div class="salary-box">
+                <span>Начислено премии:</span>
+                <span id="modalSalary" class="salary-highlight">0 ₽</span>
+            </div>
+
+            <button class="close-btn" onclick="closeModal()">Принять отчет</button>
+        </div>
+    </div>
+
+    <script>
+        // Список сервисов с эмодзи-логотипами
+        const services = [
+            { name: "YouTube", icon: "▶️" },
+            { name: "Telegram", icon: "✈️" },
+            { name: "Instagram", icon: "📸" },
+            { name: "Twitter (X)", icon: "❌" },
+            { name: "Facebook", icon: "👍" },
+            { name: "Discord", icon: "🎮" },
+            { name: "TikTok", icon: "🎵" },
+            { name: "WhatsApp", icon: "📞" },
+            { name: "Netflix", icon: "🎬" },
+            { name: "Spotify", icon: "🎧" },
+            { name: "Reddit", icon: "🤖" },
+            { name: "Pinterest", icon: "📌" },
+            { name: "Twitch", icon: "📹" },
+            { name: "LinkedIn", icon: "💼" },
+            { name: "Snapchat", icon: "👻" }
+        ];
+
+        const track = document.getElementById('track');
+        const spinBtn = document.getElementById('spinBtn');
+        const limitBtn = document.getElementById('limitBtn');
+        const slowBtn = document.getElementById('slowBtn');
+        const banBtn = document.getElementById('banBtn');
+        const currentServiceDisplay = document.getElementById('currentService');
+        
+        let isSpinning = false;
+        let selectedItem = null;
+        let currentPosition = 0;
+        
+        // Настройки
+        const itemWidth = 120; // Должно совпадать с CSS --item-width
+        const visibleItems = 5; // Примерное количество видимых элементов
+        const extraSpins = 3; // Сколько полных кругов прокрутить (виртуально)
+
+        // Инициализация ленты
+        function initTrack() {
+            // Дублируем список несколько раз, чтобы создать эффект бесконечности или длинной ленты
+            // Для простоты создадим длинную ленту из 3 копий списка
+            const fullList = [...services, ...services, ...services, ...services, ...services]; 
+            
+            fullList.forEach((service, index) => {
+                const el = document.createElement('div');
+                el.className = 'service-item';
+                el.innerHTML = `
+                    <div class="service-icon">${service.icon}</div>
+                    <div class="service-name">${service.name}</div>
+                `;
+                // Сохраняем данные в элементе
+                el.dataset.name = service.name;
+                el.dataset.index = index % services.length; // Оригинальный индекс
+                track.appendChild(el);
+            });
+        }
+
+        initTrack();
+
+        function getRandomSalary(min, max) {
+            // Генерируем случайное число, кратное 500 для красоты
+            const random = Math.floor(Math.random() * (max - min + 1)) + min;
+            const rounded = Math.ceil(random / 500) * 500;
+            return rounded.toLocaleString('ru-RU');
+        }
+
+        function spinWheel() {
+            if (isSpinning) return;
+            isSpinning = true;
+            
+            setButtonsState(false);
+            currentServiceDisplay.innerText = "Анализ трафика...";
+            currentServiceDisplay.style.color = "#fff";
+
+            // Логика остановки
+            // Нам нужно остановиться так, чтобы центр какого-то элемента совпал с центром контейнера
+            const containerWidth = document.querySelector('.roulette-wrapper').offsetWidth;
+            const centerOffset = containerWidth / 2;
+            
+            // Выбираем случайный элемент где-то в середине или конце ленты (чтобы было куда крутить)
+            // Берем диапазон от 10 до (totalItems - 10) элемента
+            const totalItems = track.children.length;
+            const targetIndex = Math.floor(Math.random() * (totalItems - 20)) + 10;
+            
+            selectedItem = services[targetIndex % services.length];
+
+            // Вычисляем позицию: 
+            // Позиция элемента = targetIndex * itemWidth
+            // Чтобы центр элемента был по центру контейнера:
+            // scrollLeft = (targetIndex * itemWidth) - centerOffset + (itemWidth / 2)
+            
+            const targetPosition = (targetIndex * itemWidth) - centerOffset + (itemWidth / 2);
+            
+            // Добавляем немного рандома внутри самого элемента (чтобы стрелка не всегда была идеально по центру иконки)
+            const randomOffset = Math.floor(Math.random() * 40) - 20; 
+            
+            const finalPosition = -(targetPosition + randomOffset);
+
+            // Анимация через Web Animations API для плавности
+            const duration = 4000; // 4 секунды
+            
+            track.animate([
+                { transform: `translateX(${currentPosition}px)` },
+                { transform: `translateX(${finalPosition}px)` }
+            ], {
+                duration: duration,
+                easing: 'cubic-bezier(0.15, 0.9, 0.3, 1)', // Эффект замедления в конце
+                fill: 'forwards'
+            }).onfinish = () => {
+                isSpinning = false;
+                currentPosition = finalPosition;
+                currentServiceDisplay.innerText = `Обнаружен: ${selectedItem.name}`;
+                // Цвет текста можно сделать динамическим, но оставим белым для читаемости
+                setButtonsState(true);
+                
+                // Опционально: сброс позиции ленты, если ушли слишком далеко (чтобы не кончилась лента)
+                // В данной простой реализации мы просто полагаемся на длину ленты (5 копий)
+            };
+        }
+
+        function setButtonsState(enabled) {
+            limitBtn.disabled = !enabled;
+            slowBtn.disabled = !enabled;
+            banBtn.disabled = !enabled;
+            spinBtn.disabled = enabled;
+            if (!enabled) spinBtn.innerText = "🚀 Запустить мониторинг";
+            else spinBtn.innerText = "🔄 Еще раз";
+        }
+
+        function applyAction(action) {
+            if (!selectedItem) return;
+
+            const modalOverlay = document.getElementById('modalOverlay');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalMessage = document.getElementById('modalMessage');
+            const modalSalary = document.getElementById('modalSalary');
+
+            let title = "";
+            let message = "";
+            let baseSalary = 0;
+            let color = "";
+
+            // Рандомная зарплата
+            const salary = getRandomSalary(40000, 99000);
+
+            if (action === 'ban') {
+                title = "🚫 ЗАБАНЕНО";
+                message = `Сервис «${selectedItem.name}» успешно внесен в реестр запрещенных сайтов. DNS заблокирован, IP-адреса внесены в черный список.`;
+                color = "#f44336";
+            } else if (action === 'limit') {
+                title = "⚠️ ОГРАНИЧЕНО";
+                message = `На сервис «${selectedItem.name}» наложены ограничения. Требуется обязательная идентификация через Госуслуги.`;
+                color = "#ff9800";
+            } else if (action === 'slow') {
+                title = "🐢 ЗАМЕДЛЕНО";
+                message = `Пропускная способность для «${selectedItem.name}» снижена до 64 кбит/с. Внедрено глубокое пакетное инспектирование (DPI).`;
+                color = "#2196F3";
+            }
+
+            modalTitle.innerText = title;
+            modalTitle.style.color = color;
+            modalMessage.innerText = message;
+            modalSalary.innerText = `${salary} ₽`;
+            
+            modalOverlay.style.display = 'flex';
+            
+            // Сброс состояния
+            selectedItem = null;
+            currentServiceDisplay.innerText = "Ожидание следующего круга";
+            setButtonsState(false);
+            spinBtn.disabled = false;
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
